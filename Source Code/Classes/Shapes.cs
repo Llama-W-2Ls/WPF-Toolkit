@@ -12,11 +12,11 @@ namespace BlenderBTech
             Vector3DCollection Normals = new Vector3DCollection
             {
                 new Vector3D(0, 0, 1),
-                new Vector3D(0, 1, 1),
-                new Vector3D(0, 1, 0),
-                new Vector3D(1, 0, 0),
-                new Vector3D(1, 0, 1),
-                new Vector3D(1, 1, 0),
+                new Vector3D(0, 0, 1),
+                new Vector3D(0, 0, 1),
+                new Vector3D(0, 0, 1),
+                new Vector3D(0, 0, 1),
+                new Vector3D(0, 0, 1),
             };
 
             PointCollection TextureCoordinates = new PointCollection

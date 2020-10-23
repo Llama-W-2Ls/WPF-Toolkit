@@ -2,12 +2,47 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Media.Media3D;
 
 namespace BlenderBTech
 {
     public partial class CameraPan
     {
+        private readonly PerspectiveCamera Camera;
+        private readonly Border ViewportHitBG;
+        
+        private Point3D OriginalCamPosition;
+        private readonly AxisAngleRotation3D MainCamAngle;
+        private readonly RotateTransform3D camRotateTransform;
+        public Point3D CameraCenter = new Point3D(0, 0, 0);
+
+        public CameraPan(PerspectiveCamera camera, Border border)
+        {
+            Camera = camera;
+            ViewportHitBG = border;
+
+            OriginalCamPosition = Camera.Position;
+            camRotateTransform = new RotateTransform3D()
+            {
+                CenterX = CameraCenter.X,
+                CenterY = CameraCenter.Y,
+                CenterZ = CameraCenter.Z,
+            };
+            MainCamAngle = new AxisAngleRotation3D()
+            {
+                Axis = new Vector3D(1, 0, 0),
+                Angle = 0
+            };
+
+            camRotateTransform.Rotation = MainCamAngle;
+            Camera.Transform = camRotateTransform;
+
+            ViewportHitBG.MouseMove += PanLookAroundViewport_MouseMove;
+            ViewportHitBG.MouseDown += MiddleMouseButton_MouseDown;
+            ViewportHitBG.MouseWheel += ZoomInOutViewport_MouseScroll;
+        }
+
         Point TemporaryMousePosition;
         Point3D PreviousCameraPosition;
 
@@ -19,8 +54,6 @@ namespace BlenderBTech
         private readonly float PanSpeed = 4f;
         private readonly float LookSensitivity = 100f;
         private readonly float ZoomInOutDistance = 1f;
-
-        private readonly MainWindow mainWindow = Application.Current.Windows.OfType<MainWindow>().FirstOrDefault();
 
         public Vector3D LookDirection(PerspectiveCamera camera, Point3D pointToLookAt) // Calculates vector direction between two points (LookAt() method)
         {
@@ -40,24 +73,24 @@ namespace BlenderBTech
             {
                 Point mousePos = e.GetPosition(sender as Border); // Gets the current mouse pos
                 Point3D newCamPos = new Point3D(
-                    ((-mousePos.X + TemporaryMousePosition.X) / mainWindow.Width * PanSpeed) + PreviousCameraPosition.X,
-                    ((mousePos.Y - TemporaryMousePosition.Y) / mainWindow.Height * PanSpeed) + PreviousCameraPosition.Y,
-                    mainWindow.MainCamera.Position.Z); // Calculates the proportional distance to move the camera, 
+                    ((-mousePos.X + TemporaryMousePosition.X) / ViewportHitBG.Width * PanSpeed) + PreviousCameraPosition.X,
+                    ((mousePos.Y - TemporaryMousePosition.Y) / ViewportHitBG.Height * PanSpeed) + PreviousCameraPosition.Y,
+                    Camera.Position.Z); // Calculates the proportional distance to move the camera, 
                                                        // can be increased by changing the variable 'PanSpeed'
 
                 if (Keyboard.IsKeyDown(Key.LeftCtrl)) // Pan viewport
                 {
-                    mainWindow.MainCamera.Position = newCamPos;
+                    Camera.Position = newCamPos;
                 }
                 else // Look around viewport
                 {
-                    double RotY = (e.GetPosition(sender as Label).X - TemporaryMousePosition.X) / mainWindow.Width * LookSensitivity; // MousePosX is the Y axis of a rotation
-                    double RotX = (e.GetPosition(sender as Label).Y - TemporaryMousePosition.Y) / mainWindow.Height * LookSensitivity; // MousePosY is the X axis of a rotation
+                    double RotY = (e.GetPosition(sender as Label).X - TemporaryMousePosition.X) / ViewportHitBG.Width * LookSensitivity; // MousePosX is the Y axis of a rotation
+                    double RotX = (e.GetPosition(sender as Label).Y - TemporaryMousePosition.Y) / ViewportHitBG.Height * LookSensitivity; // MousePosY is the X axis of a rotation
 
                     QuatX = Quaternion.Multiply(new Quaternion(new Vector3D(1, 0, 0), -RotX), PreviousQuatX);
                     QuatY = Quaternion.Multiply(new Quaternion(new Vector3D(0, 1, 0), -RotY), PreviousQuatY);
                     Quaternion QuaternionRotation = Quaternion.Multiply(QuatY, QuatX); // Composite Quaternion between the x rotation and the y rotation
-                    mainWindow.camRotateTransform.Rotation = new QuaternionRotation3D(QuaternionRotation); // MainCamera.Transform = RotateTransform3D 'camRotateTransform'
+                    camRotateTransform.Rotation = new QuaternionRotation3D(QuaternionRotation); // MainCamera.Transform = RotateTransform3D 'camRotateTransform'
                 }
             }
         }
@@ -67,14 +100,14 @@ namespace BlenderBTech
             if (e.MiddleButton == MouseButtonState.Pressed)
             {
                 TemporaryMousePosition = e.GetPosition(sender as Label);
-                PreviousCameraPosition = mainWindow.MainCamera.Position;
+                PreviousCameraPosition = Camera.Position;
                 PreviousQuatX = QuatX;
                 PreviousQuatY = QuatY;
 
-                mainWindow.CameraCenter = new Point3D(
-                    mainWindow.CameraCenter.X + mainWindow.MainCamera.Position.X - mainWindow.OriginalCamPosition.X,
-                    mainWindow.CameraCenter.Y + mainWindow.MainCamera.Position.Y - mainWindow.OriginalCamPosition.Y,
-                    mainWindow.CameraCenter.Z + mainWindow.MainCamera.Position.Z - mainWindow.OriginalCamPosition.Z);
+                CameraCenter = new Point3D(
+                    CameraCenter.X + Camera.Position.X - OriginalCamPosition.X,
+                    CameraCenter.Y + Camera.Position.Y - OriginalCamPosition.Y,
+                    CameraCenter.Z + Camera.Position.Z - OriginalCamPosition.Z);
             }
         }
 

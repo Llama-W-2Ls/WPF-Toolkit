@@ -11,11 +11,28 @@ namespace BlenderBTech
 {
     public static class EditMode
     {
+        #region private constants/variables
+        private static readonly List<GeometryModel3D> AllWireframes = new List<GeometryModel3D>();
+        private static List<GeometryModel3D> points = new List<GeometryModel3D>();
+        private static List<GeometryModel3D> lines = new List<GeometryModel3D>();
+        private static Model3DGroup ChosenGroup = new Model3DGroup();
+
+        private static readonly GeometryModel3D[] Axises = new GeometryModel3D[3];
+        private static Point mousePos = new Point();
+        private static TranslateTransform3D AxisPosition = new TranslateTransform3D();
+        private static string CurrentlyEditingAxis = "null";
+        private static readonly MainWindow main = Application.Current.Windows.OfType<MainWindow>().FirstOrDefault();
+        private static GeometryModel3D CurrentVertEdgeBeingEdited = new GeometryModel3D();
+        private static MeshGeometry3D CurrentMeshBeingEdited = new MeshGeometry3D();
+        #endregion
+
         public static void DisplayEdges(MeshGeometry3D mesh, Model3DGroup group)
         {
             Point3D[] points = mesh.Positions.ToArray();
             int[] triangles = mesh.TriangleIndices.ToArray();
             List<Point3D[]> edges = new List<Point3D[]>();
+
+            CurrentMeshBeingEdited = mesh;
 
             for (int i = 0; i < triangles.Length - 1; i++)
             {
@@ -47,22 +64,26 @@ namespace BlenderBTech
 
             HashSet<Point3D[]> DistinctList = new HashSet<Point3D[]>(edges);
 
-            List<GeometryModel3D> lines = DrawEdges(DistinctList.ToList());
+            lines = DrawEdges(DistinctList.ToList());
 
             foreach (GeometryModel3D line in lines)
             {
                 group.Children.Add(line);
+                AllWireframes.Add(line);
             }
         }
 
         public static void DisplayVertices(MeshGeometry3D mesh, Model3DGroup group)
         {
             Point3D[] vertices = mesh.Positions.ToArray();
-            List<GeometryModel3D> points = DrawVertices(vertices, 0.025);
+            HashSet<Point3D> DistinctList = new HashSet<Point3D>(vertices);
+            points = DrawVertices(DistinctList.ToArray(), 0.025);
+            ChosenGroup = group;
 
             foreach (GeometryModel3D point in points)
             {
                 group.Children.Add(point);
+                AllWireframes.Add(point);
             }
         }
 
@@ -144,30 +165,127 @@ namespace BlenderBTech
             return Points;
         }
 
-        public static void HighlightVertices(object sender, MouseEventArgs e)
+        public static void HighlightVertsAndEdges_MouseLeftButtonDown(object sender, MouseEventArgs e)
         {
-            Point mousePos = e.GetPosition(sender as Viewport3D);
-
-            PointHitTestParameters hitParams = new PointHitTestParameters(mousePos);
-            HitTestResult result = VisualTreeHelper.HitTest((Viewport3D)sender, mousePos);
-            RayMeshGeometry3DHitTestResult rayMeshResult = result as RayMeshGeometry3DHitTestResult;
-            GeometryModel3D model = new GeometryModel3D();
-
-            if (rayMeshResult != null)
+            foreach (GeometryModel3D wireframe in AllWireframes)
             {
-                MeshGeometry3D mesh = new MeshGeometry3D
-                {
-                    Positions = rayMeshResult.MeshHit.Positions,
-                    TriangleIndices = rayMeshResult.MeshHit.TriangleIndices,
-                    TextureCoordinates = rayMeshResult.MeshHit.TextureCoordinates,
-                    Normals = rayMeshResult.MeshHit.Normals
-                };
-
-                model.Geometry = mesh;
-                model.Material = new DiffuseMaterial(new SolidColorBrush(Colors.Yellow));
+                wireframe.Material = new DiffuseMaterial(new SolidColorBrush(Colors.Black));
             }
 
+            mousePos = e.GetPosition(sender as Viewport3D);
+            HitTestResult result = VisualTreeHelper.HitTest(sender as Viewport3D, mousePos);
 
+            if (result is RayMeshGeometry3DHitTestResult rayMeshResult)
+            {
+                GeometryModel3D hitGeometry = rayMeshResult.ModelHit as GeometryModel3D;
+                if (AllWireframes.Contains(hitGeometry))
+                {
+                    AxisPosition = new TranslateTransform3D();
+                    hitGeometry.Material = new DiffuseMaterial(new SolidColorBrush(Colors.Yellow));
+
+                    Rect3D bounds = hitGeometry.Bounds;
+                    Point3D CenterOfGeometry = new Point3D()
+                    {
+                        X = bounds.X + bounds.SizeX / 2,
+                        Y = bounds.Y + bounds.SizeY / 2,
+                        Z = bounds.Z + bounds.SizeZ / 2,
+                    };
+                    DisplayAxisAt(ChosenGroup, CenterOfGeometry);
+                    CurrentlyEditingAxis = "";
+                    CurrentVertEdgeBeingEdited = hitGeometry;
+                }
+                else if (Axises.Contains(hitGeometry))
+                {
+                    int index = Array.IndexOf(Axises, hitGeometry);
+                    switch (index)
+                    {
+                        case 0:
+                            CurrentlyEditingAxis = "X";
+                            break;
+                        case 1:
+                            CurrentlyEditingAxis = "Y";
+                            break;
+                        case 2:
+                            CurrentlyEditingAxis = "Z";
+                            break;
+                    }
+                    hitGeometry.Material = new DiffuseMaterial(new SolidColorBrush(Colors.Yellow));
+                }
+            }
+        }
+
+        private static void DisplayAxisAt(Model3DGroup group, Point3D PosOfAxis)
+        {
+            GeometryModel3D Xaxis = new GeometryModel3D()
+            {
+                Geometry = Shapes.Cylinder(0.03, 4, PosOfAxis, new Vector3D(1, 0, 0)),
+                Material = new DiffuseMaterial(new SolidColorBrush(Colors.Red)),
+            }; 
+            GeometryModel3D Yaxis = new GeometryModel3D()
+            {
+                Geometry = Shapes.Cylinder(0.03, 4, PosOfAxis, new Vector3D(0, 1, 0)),
+                Material = new DiffuseMaterial(new SolidColorBrush(Colors.Green)),
+            };
+            GeometryModel3D Zaxis = new GeometryModel3D()
+            {
+                Geometry = Shapes.Cylinder(0.03, 4, PosOfAxis, new Vector3D(0, 0, 1)),
+                Material = new DiffuseMaterial(new SolidColorBrush(Colors.Blue)),
+            };
+
+            foreach (var item in Axises) { group.Children.Remove(item); }
+
+            Axises[0] = Xaxis; Axises[1] = Yaxis; Axises[2] = Zaxis;
+            foreach (var item in Axises) { group.Children.Add(item); }           
+        }
+
+        public static void AxisProperties_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (e.LeftButton == MouseButtonState.Pressed)
+            {
+                Point newMousePos = e.GetPosition(sender as Border);
+
+                switch (CurrentlyEditingAxis)
+                {
+                    case "X":
+                        AxisPosition.OffsetX = (-newMousePos.X + mousePos.X) / main.Width * -4;
+                        break;
+                    case "Y":
+                        AxisPosition.OffsetY = (newMousePos.Y - mousePos.Y) / main.Height * -4;
+                        break;
+                    case "Z":
+                        AxisPosition.OffsetZ = (-newMousePos.X + mousePos.X) / main.Width * 4;
+                        break;
+                    default:
+                        break;
+                }
+
+                if (CurrentlyEditingAxis != "null")
+                {
+                    foreach (var item in Axises)
+                    {
+                        item.Transform = AxisPosition;
+                    }
+                }
+
+                CurrentVertEdgeBeingEdited.Transform = AxisPosition;
+
+                Rect3D bounds = CurrentVertEdgeBeingEdited.Bounds;
+                Point3D CenterOfGeometry = new Point3D()
+                {
+                    X = bounds.X + bounds.SizeX / 2,
+                    Y = bounds.Y + bounds.SizeY / 2,
+                    Z = bounds.Z + bounds.SizeZ / 2,
+                };
+
+                int index = points.IndexOf(CurrentVertEdgeBeingEdited);
+                CurrentMeshBeingEdited.Positions[index] = CenterOfGeometry;
+
+                foreach (var item in lines)
+                {
+                    ChosenGroup.Children.Remove(item);
+                }
+                DisplayEdges(CurrentMeshBeingEdited, ChosenGroup);
+            }
         }
     }
 }
