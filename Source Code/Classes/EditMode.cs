@@ -24,6 +24,7 @@ namespace BlenderBTech
         private static readonly MainWindow main = Application.Current.Windows.OfType<MainWindow>().FirstOrDefault();
         private static GeometryModel3D CurrentVertEdgeBeingEdited = new GeometryModel3D();
         private static MeshGeometry3D CurrentMeshBeingEdited = new MeshGeometry3D();
+        private static TranslateTransform3D PreviousAxisPosition = new TranslateTransform3D();
         #endregion
 
         public static void DisplayEdges(MeshGeometry3D mesh, Model3DGroup group)
@@ -34,18 +35,39 @@ namespace BlenderBTech
 
             CurrentMeshBeingEdited = mesh;
 
-            for (int i = 0; i < triangles.Length - 1; i++)
+            if (points.Length == 8)
             {
-                Point3D[] edge = new Point3D[2];
-                edge[0] = points[triangles[i]]; edge[1] = points[triangles[i + 1]];
-
-                /*bool IsDiagonalEdge = ((edge[0].X != edge[1].X) && (edge[0].Y == edge[1].Y) && edge[0].Z == edge[1].Z)
-                || ((edge[0].X == edge[1].X) && (edge[0].Y != edge[1].Y) && edge[0].Z == edge[1].Z)
-                || ((edge[0].X == edge[1].X) && (edge[0].Y == edge[1].Y) && edge[0].Z != edge[1].Z);*/
-
-                if ((edge[0] != edge[1]))
+                for (int i = 0; i < triangles.Length - 1; i += 6)
                 {
-                    edges.Add(edge);
+                    Point3D[] edge = new Point3D[2];
+                    edge[0] = points[triangles[i]]; edge[1] = points[triangles[i + 1]];
+
+                    Point3D[] edge2 = new Point3D[2];
+                    edge2[0] = points[triangles[i + 4]]; edge2[1] = points[triangles[i + 5]];
+
+                    if (i == 0 || i == triangles.Length - 6)
+                    {
+                        Point3D[] edge3 = new Point3D[2];
+                        edge3[0] = points[triangles[i + 3]]; edge3[1] = points[triangles[i + 4]];
+                        edges.Add(edge3);
+                    }
+
+                    if ((edge[0] != edge[1]))
+                    {
+                        edges.Add(edge);
+                        edges.Add(edge2);
+                    }
+                }
+            }
+            else
+            {
+                for (int i = 0; i < triangles.Length - 1; i++)
+                {
+                    Point3D[] edge = new Point3D[2];
+                    edge[0] = points[triangles[i]]; edge[1] = points[triangles[i + 1]];
+
+                    if (edge[0] != edge[1])
+                        edges.Add(edge);
                 }
             }
 
@@ -64,13 +86,14 @@ namespace BlenderBTech
 
             HashSet<Point3D[]> DistinctList = new HashSet<Point3D[]>(edges);
 
+            UpdateSomeEdges(CurrentMeshBeingEdited);
             lines = DrawEdges(DistinctList.ToList());
 
             foreach (GeometryModel3D line in lines)
             {
                 group.Children.Add(line);
                 AllWireframes.Add(line);
-            }
+            }            
         }
 
         public static void DisplayVertices(MeshGeometry3D mesh, Model3DGroup group)
@@ -156,7 +179,7 @@ namespace BlenderBTech
                         1, 0, 4, 4, 5, 1
                     },
                 };
-                GeometryModel3D Point = new GeometryModel3D() 
+                GeometryModel3D Point = new GeometryModel3D()
                 { Geometry = Cube, Material = new DiffuseMaterial(new SolidColorBrush(Colors.Black)) };
 
                 Points.Add(Point);
@@ -167,6 +190,8 @@ namespace BlenderBTech
 
         public static void HighlightVertsAndEdges_MouseLeftButtonDown(object sender, MouseEventArgs e)
         {
+            PreviousAxisPosition = AxisPosition;
+
             foreach (GeometryModel3D wireframe in AllWireframes)
             {
                 wireframe.Material = new DiffuseMaterial(new SolidColorBrush(Colors.Black));
@@ -247,13 +272,13 @@ namespace BlenderBTech
                 switch (CurrentlyEditingAxis)
                 {
                     case "X":
-                        AxisPosition.OffsetX = (-newMousePos.X + mousePos.X) / main.Width * -4;
+                        AxisPosition.OffsetX = ((-newMousePos.X + mousePos.X) / main.Width * -4);
                         break;
                     case "Y":
-                        AxisPosition.OffsetY = (newMousePos.Y - mousePos.Y) / main.Height * -4;
+                        AxisPosition.OffsetY = ((newMousePos.Y - mousePos.Y) / main.Height * -4);
                         break;
                     case "Z":
-                        AxisPosition.OffsetZ = (-newMousePos.X + mousePos.X) / main.Width * 4;
+                        AxisPosition.OffsetZ = ((-newMousePos.X + mousePos.X) / main.Width * 4);
                         break;
                     default:
                         break;
@@ -284,8 +309,117 @@ namespace BlenderBTech
                 {
                     ChosenGroup.Children.Remove(item);
                 }
-                DisplayEdges(CurrentMeshBeingEdited, ChosenGroup);
+                UpdateSomeEdges(CurrentMeshBeingEdited);
             }
+        }
+
+        private static void UpdateSomeEdges(MeshGeometry3D mesh)
+        {
+            Point3D[] points = mesh.Positions.ToArray();
+            int[] triangles = mesh.TriangleIndices.ToArray();
+            List<Point3D[]> edges = new List<Point3D[]>();
+
+            if (points.Length == 8)
+            {
+                for (int i = 0; i < triangles.Length - 1; i += 6)
+                {
+                    Point3D[] edge = new Point3D[2];
+                    edge[0] = points[triangles[i]]; edge[1] = points[triangles[i + 1]];
+
+                    Point3D[] edge2 = new Point3D[2];
+                    edge2[0] = points[triangles[i + 4]]; edge2[1] = points[triangles[i + 5]];
+
+                    if (i == 0 || i == triangles.Length - 6)
+                    {
+                        Point3D[] edge3 = new Point3D[2];
+                        edge3[0] = points[triangles[i + 3]]; edge3[1] = points[triangles[i + 4]];
+                        edges.Add(edge3);
+                    }
+
+                    if ((edge[0] != edge[1]))
+                    {
+                        edges.Add(edge);
+                        edges.Add(edge2);
+                    }
+                }
+            }
+            else
+            {
+                for (int i = 0; i < triangles.Length - 1; i++)
+                {
+                    Point3D[] edge = new Point3D[2];
+                    edge[0] = points[triangles[i]]; edge[1] = points[triangles[i + 1]];
+
+                    if (edge[0] != edge[1])
+                    {
+                        edges.Add(edge);
+                    }
+                }
+            }
+
+            for (int i = 0; i < edges.Count; i++)
+            {
+                Point3D[] edge = edges[i];
+
+                for (int j = 0; j < edges.Count; j++)
+                {
+                    if (edge[0] == edges[j][1] && edge[1] == edges[j][0])
+                    {
+                        edges.Remove(edge);
+                    }
+                }
+            }
+
+            HashSet<Point3D[]> DistinctList = new HashSet<Point3D[]>(edges);
+
+            Rect3D bounds = CurrentVertEdgeBeingEdited.Bounds;
+            Point3D CenterOfGeometry = new Point3D()
+            {
+                X = bounds.X + bounds.SizeX / 2,
+                Y = bounds.Y + bounds.SizeY / 2,
+                Z = bounds.Z + bounds.SizeZ / 2,
+            };
+
+            lines = UpdateEdges(DistinctList.ToList(), CenterOfGeometry);
+
+            foreach (GeometryModel3D line in lines)
+            {
+                ChosenGroup.Children.Add(line);
+                AllWireframes.Add(line);
+            }
+        }
+
+        private static List<GeometryModel3D> UpdateEdges(List<Point3D[]> edges, Point3D EditedVertex)
+        {
+            List<GeometryModel3D> Lines = new List<GeometryModel3D>();
+            List<Point3D[]> UpdatedEdges = new List<Point3D[]>();
+
+            foreach (Point3D[] edge in edges)
+            {
+                if (edge.Contains(EditedVertex))
+                {
+                    UpdatedEdges.Add(edge);
+                }
+            }
+
+            foreach (Point3D[] edge in UpdatedEdges)
+            {
+                Vector3D Axis = new Vector3D()
+                {
+                    X = edge[0].X - edge[1].X,
+                    Y = edge[0].Y - edge[1].Y,
+                    Z = edge[0].Z - edge[1].Z,
+                };
+                GeometryModel3D Line = new GeometryModel3D
+                {
+                    Geometry = Shapes.Cylinder(0.01, 4, edge[1], Axis),
+                    Material = new DiffuseMaterial(new SolidColorBrush(Colors.Black)),
+                };
+
+                Lines.Add(Line);
+            }
+
+            return Lines;
         }
     }
 }

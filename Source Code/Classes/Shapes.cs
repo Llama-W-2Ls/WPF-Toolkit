@@ -7,7 +7,7 @@ namespace BlenderBTech
 {
     public static class Shapes
     {
-        public static MeshGeometry3D Cube()
+        public static MeshGeometry3D Cube(Point3D position = new Point3D())
         {
             Vector3DCollection Normals = new Vector3DCollection
             {
@@ -29,14 +29,14 @@ namespace BlenderBTech
 
             Point3DCollection Positions = new Point3DCollection
             {
-                new Point3D(-0.5, -0.5, 0.5), // BL FRONT 0
-                new Point3D(0.5, -0.5, 0.5), // BR FRONT 1
-                new Point3D(0.5, 0.5, 0.5), // TR FRONT 2
-                new Point3D(-0.5, 0.5, 0.5), // TL FRONT 3
-                new Point3D(-0.5, -0.5, -0.5), // BL BACK 4
-                new Point3D(0.5, -0.5, -0.5), // BR BACK 5
-                new Point3D(0.5, 0.5, -0.5), // TR BACK 6
-                new Point3D(-0.5, 0.5, -0.5) // TL BACK 7
+                new Point3D(-0.5 + position.X, -0.5 + position.Y, 0.5 + position.Z), // BL FRONT 0
+                new Point3D(0.5 + position.X, -0.5 + position.Y, 0.5 + position.Z), // BR FRONT 1
+                new Point3D(0.5 + position.X, 0.5 + position.Y, 0.5 + position.Z), // TR FRONT 2
+                new Point3D(-0.5 + position.X, 0.5 + position.Y, 0.5 + position.Z), // TL FRONT 3
+                new Point3D(-0.5 + position.X, -0.5 + position.Y, -0.5 + position.Z), // BL BACK 4
+                new Point3D(0.5 + position.X, -0.5 + position.Y, -0.5 + position.Z), // BR BACK 5
+                new Point3D(0.5 + position.X, 0.5 + position.Y, -0.5 + position.Z), // TR BACK 6
+                new Point3D(-0.5 + position.X, 0.5 + position.Y, -0.5 + position.Z) // TL BACK 7
             };
 
             MeshGeometry3D Faces = new MeshGeometry3D()
